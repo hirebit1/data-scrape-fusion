@@ -3,11 +3,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Icons } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
 
 interface GithubResultsProps {
   data: {
     profile: any;
     repositories: any[];
+    commitStats: {
+      total_commits: number;
+      contributions_this_year: number;
+      streak_days: number;
+      contribution_history: Array<{
+        date: string;
+        count: number;
+      }>;
+    };
   };
 }
 
@@ -29,7 +47,7 @@ export function GithubResults({ data }: GithubResultsProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className="text-2xl font-bold">{data.profile.public_repos}</div>
               <div className="text-sm text-muted-foreground">Repositories</div>
@@ -42,6 +60,45 @@ export function GithubResults({ data }: GithubResultsProps) {
               <div className="text-2xl font-bold">{data.profile.following}</div>
               <div className="text-sm text-muted-foreground">Following</div>
             </div>
+            <div>
+              <div className="text-2xl font-bold">{data.commitStats.streak_days}</div>
+              <div className="text-sm text-muted-foreground">Day Streak</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Commit Activity</CardTitle>
+          <CardDescription>Your contribution history over time</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.commitStats.contribution_history}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(date) => format(new Date(date), 'MMM d')}
+                />
+                <YAxis />
+                <Tooltip 
+                  labelFormatter={(date) => format(new Date(date), 'MMM d, yyyy')}
+                  formatter={(value) => [`${value} commits`, 'Commits']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#2563eb" 
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 text-center">
+            <div className="text-2xl font-bold">{data.commitStats.total_commits}</div>
+            <div className="text-sm text-muted-foreground">Total Commits</div>
           </div>
         </CardContent>
       </Card>
