@@ -8,13 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { fetchGithubData } from "@/services/githubService";
+import { fetchPortfolioData } from "@/services/portfolioService";
 import { GithubResults } from "@/components/GithubResults";
+import { PortfolioResults } from "@/components/PortfolioResults";
 
 export default function Index() {
   const { toast } = useToast();
   const [urls, setUrls] = useState<Partial<UrlInputs>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [githubData, setGithubData] = useState<any>(null);
+  const [portfolioData, setPortfolioData] = useState<any>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +34,30 @@ export default function Index() {
           description: "GitHub data fetched successfully!",
         });
       }
+
+      if (validatedUrls.portfolio) {
+        // Check localStorage first
+        const cachedData = localStorage.getItem(`portfolio_${validatedUrls.portfolio}`);
+        const cachedAnalysis = localStorage.getItem(`portfolio_analysis_${validatedUrls.portfolio}`);
+        
+        if (cachedData && cachedAnalysis) {
+          setPortfolioData({
+            data: JSON.parse(cachedData),
+            analysis: JSON.parse(cachedAnalysis)
+          });
+          toast({
+            title: "Success",
+            description: "Portfolio data loaded from cache!",
+          });
+        } else {
+          const data = await fetchPortfolioData(validatedUrls.portfolio);
+          setPortfolioData(data);
+          toast({
+            title: "Success",
+            description: "Portfolio data analyzed successfully!",
+          });
+        }
+      }
       
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -43,7 +70,7 @@ export default function Index() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to fetch GitHub data. Please try again.",
+          description: "Failed to fetch data. Please try again.",
         });
       }
     } finally {
@@ -112,6 +139,12 @@ export default function Index() {
         {githubData && (
           <div className="mt-8">
             <GithubResults data={githubData} />
+          </div>
+        )}
+
+        {portfolioData && (
+          <div className="mt-8">
+            <PortfolioResults data={portfolioData.data} analysis={portfolioData.analysis} />
           </div>
         )}
       </div>
