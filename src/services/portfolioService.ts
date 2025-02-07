@@ -1,4 +1,3 @@
-
 interface PortfolioData {
   title: string;
   description: string;
@@ -31,17 +30,14 @@ interface PortfolioAnalysis {
 
 export const fetchPortfolioData = async (url: string): Promise<{ data: PortfolioData; analysis: PortfolioAnalysis }> => {
   try {
-    // Fetch the HTML content using a CORS proxy
     const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
     if (!response.ok) throw new Error('Failed to fetch portfolio');
     const data = await response.json();
     const html = data.contents;
 
-    // Parse the HTML content
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // Extract portfolio data
     const portfolioData: PortfolioData = {
       title: doc.title || '',
       description: doc.querySelector('meta[name="description"]')?.getAttribute('content') || '',
@@ -55,17 +51,17 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
           technologies: Array.from(project.querySelectorAll('.tech, .stack'))
             .map(tech => tech.textContent?.trim() || '')
             .filter(Boolean),
-          url: project.querySelector('a')?.href,
+          url: (project.querySelector('a') as HTMLAnchorElement)?.href || '',
         })),
       skills: Array.from(doc.querySelectorAll('.skill, .technology'))
         .map(skill => skill.textContent?.trim() || '')
         .filter(Boolean),
       contact: {
-        email: doc.querySelector('a[href^="mailto:"]')?.getAttribute('href')?.replace('mailto:', '') || '',
+        email: (doc.querySelector('a[href^="mailto:"]') as HTMLAnchorElement)?.href?.replace('mailto:', '') || '',
         social: {
-          github: doc.querySelector('a[href*="github.com"]')?.href || '',
-          linkedin: doc.querySelector('a[href*="linkedin.com"]')?.href || '',
-          twitter: doc.querySelector('a[href*="twitter.com"]')?.href || '',
+          github: (doc.querySelector('a[href*="github.com"]') as HTMLAnchorElement)?.href || '',
+          linkedin: (doc.querySelector('a[href*="linkedin.com"]') as HTMLAnchorElement)?.href || '',
+          twitter: (doc.querySelector('a[href*="twitter.com"]') as HTMLAnchorElement)?.href || '',
         },
       },
       metadata: {
@@ -75,10 +71,8 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       },
     };
 
-    // Store in localStorage for faster access
     localStorage.setItem(`portfolio_${url}`, JSON.stringify(portfolioData));
 
-    // Analyze the portfolio data
     const analysis = analyzePortfolio(portfolioData);
     localStorage.setItem(`portfolio_analysis_${url}`, JSON.stringify(analysis));
 
@@ -96,7 +90,6 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
   let technicalScore = 0;
   let presentationScore = 0;
 
-  // Technical Analysis
   if (data.technologies.length > 5) {
     strengths.push('Diverse technical skill set');
     technicalScore += 30;
@@ -105,7 +98,6 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
     suggestions.push('Consider expanding your technology expertise');
   }
 
-  // Project Analysis
   if (data.projects.length >= 3) {
     strengths.push('Good portfolio of projects');
     technicalScore += 30;
@@ -114,7 +106,6 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
     suggestions.push('Add more project examples to demonstrate your capabilities');
   }
 
-  // Content Analysis
   if (data.description && data.description.length > 100) {
     strengths.push('Well-described professional profile');
     presentationScore += 20;
@@ -123,7 +114,6 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
     suggestions.push('Expand your professional summary to better highlight your expertise');
   }
 
-  // Contact Information
   if (data.contact?.email && Object.values(data.contact.social || {}).some(Boolean)) {
     strengths.push('Good professional networking presence');
     presentationScore += 20;
