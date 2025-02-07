@@ -7,11 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
+import { fetchGithubData } from "@/services/githubService";
+import { GithubResults } from "@/components/GithubResults";
 
 export default function Index() {
   const { toast } = useToast();
   const [urls, setUrls] = useState<Partial<UrlInputs>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [githubData, setGithubData] = useState<any>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,12 +23,14 @@ export default function Index() {
       setIsLoading(true);
       const validatedUrls = await urlSchema.parseAsync(urls);
       
-      toast({
-        title: "Success",
-        description: "URLs validated successfully. Ready to scrape!",
-      });
-      
-      // Here we'll implement the scraping logic in the next step
+      if (validatedUrls.github) {
+        const data = await fetchGithubData(validatedUrls.github);
+        setGithubData(data);
+        toast({
+          title: "Success",
+          description: "GitHub data fetched successfully!",
+        });
+      }
       
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -38,7 +43,7 @@ export default function Index() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Something went wrong. Please try again.",
+          description: "Failed to fetch GitHub data. Please try again.",
         });
       }
     } finally {
@@ -103,6 +108,12 @@ export default function Index() {
             )}
           </Button>
         </form>
+
+        {githubData && (
+          <div className="mt-8">
+            <GithubResults data={githubData} />
+          </div>
+        )}
       </div>
     </div>
   );
