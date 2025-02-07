@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
 import { urlSchema, type UrlInputs } from "@/utils/validation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,11 @@ export default function Index() {
     setUrls(prev => ({ ...prev, [type]: e.target.value }));
   };
 
+  const renderIcon = (type: keyof typeof Icons) => {
+    const Icon = Icons[type];
+    return <Icon className="h-5 w-5 text-gray-500" />;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
@@ -67,7 +73,7 @@ export default function Index() {
               <Card key={type} className="p-6 glass-card hover-card">
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2">
-                    <Icons[type] className="h-5 w-5 text-gray-500" />
+                    {renderIcon(type)}
                     <h2 className="text-lg font-medium capitalize">{type}</h2>
                   </div>
                   <Input
