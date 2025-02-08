@@ -250,8 +250,10 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       achievements?: string[];
     }> => {
       const educationSelectors = [
-        '.education', '#education',
-        '[class*="education"]', 'section:has(h2:contains("Education"))'
+        '#education', '.education',
+        'section[id*="education"]', 'div[id*="education"]',
+        'section[class*="education"]', 'div[class*="education"]',
+        'h2, h3, h4'
       ];
 
       const education: Array<{
@@ -264,32 +266,37 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       educationSelectors.forEach(selector => {
         const sections = doc.querySelectorAll(selector);
         sections.forEach(section => {
-          const institution = getContent([
-            '.institution', '.school', '.university',
-            'h3', '.title', 'strong'
-          ], section);
+          const text = section.textContent?.toLowerCase() || '';
+          if (text.includes('education') || text.includes('university') || text.includes('degree')) {
+            const container = section.closest('section') || section.closest('div') || section;
+            
+            const institution = getContent([
+              'h3', '.institution', '.university', '.school',
+              'strong', '.name', '[class*="institution"]'
+            ], container);
 
-          const degree = getContent([
-            '.degree', '.major', '.qualification',
-            'p', '.description'
-          ], section);
+            const degree = getContent([
+              '.degree', '.major', '.course',
+              'p', '.description', '[class*="degree"]'
+            ], container);
 
-          const duration = getContent([
-            '.duration', '.period', '.dates',
-            'time', '.year'
-          ], section);
+            const duration = getContent([
+              '.duration', '.period', '.date',
+              'time', '.year', '[class*="duration"]'
+            ], container);
 
-          if (institution || degree) {
-            const achievements = Array.from(section.querySelectorAll('li'))
-              .map(li => li.textContent?.trim())
-              .filter((a): a is string => !!a);
+            if (institution || degree) {
+              const achievements = Array.from(container.querySelectorAll('li, .achievement'))
+                .map(li => li.textContent?.trim())
+                .filter((a): a is string => !!a && a.length > 10);
 
-            education.push({
-              institution: institution || 'Unknown Institution',
-              degree: degree || 'Unspecified Degree',
-              duration: duration || '',
-              achievements: achievements.length > 0 ? achievements : undefined
-            });
+              education.push({
+                institution: institution || 'Unknown Institution',
+                degree: degree || 'Unspecified Degree',
+                duration: duration || '',
+                achievements: achievements.length > 0 ? achievements : undefined
+              });
+            }
           }
         });
       });
