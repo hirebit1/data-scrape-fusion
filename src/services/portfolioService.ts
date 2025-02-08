@@ -1,4 +1,3 @@
-
 import { JSDOM } from 'jsdom';
 import axios from 'axios';
 
@@ -75,7 +74,6 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
     const doc = parser.parseFromString(html, 'text/html');
     console.log('Parsed HTML document:', doc.documentElement.outerHTML.substring(0, 200) + '...');
 
-    // Enhanced content extraction
     const getContent = (selectors: string[], context: Document | Element = doc): string => {
       for (const selector of selectors) {
         const elements = context.querySelectorAll(selector);
@@ -299,7 +297,7 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       return education;
     };
 
-    const getExperience = (): Array<{
+    const getExperience = (doc: Document): Array<{
       company: string;
       role: string;
       duration: string;
@@ -307,9 +305,9 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       achievements?: string[];
     }> => {
       const experienceSelectors = [
-        '.experience', '#experience',
-        '[class*="experience"]', '.work-history',
-        'section:has(h2:contains("Experience"))'
+        '[class*="experience"]', '#experience',
+        '[class*="work"]', '.work-history',
+        'section h2, section h3'
       ];
 
       const experience: Array<{
@@ -344,7 +342,7 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
           ], section);
 
           if (company || role) {
-            const achievements = Array.from(section.querySelectorAll('li'))
+            const achievements = Array.from(section.querySelectorAll('li, p'))
               .map(li => li.textContent?.trim())
               .filter((a): a is string => !!a);
 
@@ -427,7 +425,7 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       technologies: getTechnologies(),
       projects: getProjects(),
       skills: Array.from(new Set([...getTechnologies()])),
-      experience: getExperience(),
+      experience: getExperience(doc),
       education: getEducation(),
       contact: {
         email: (doc.querySelector('a[href^="mailto:"]') as HTMLAnchorElement)?.href?.replace('mailto:', '') || '',
@@ -503,6 +501,17 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
     suggestions.push('Add project examples to demonstrate your capabilities');
   }
 
+  // Buzzword Analysis
+  const buzzwords = ['passionate', 'ninja', 'guru', 'rockstar', 'expert', 'specialist'];
+  const description = data.description?.toLowerCase() || '';
+  const buzzwordCount = buzzwords.filter(word => description.includes(word)).length;
+  
+  if (buzzwordCount > 3) {
+    weaknesses.push('Overuse of industry buzzwords');
+    suggestions.push('Replace generic terms with specific achievements and skills');
+    presentationScore -= 15;
+  }
+
   // Content Quality Analysis
   if (data.description && data.description.length > 300) {
     strengths.push('Detailed professional profile');
@@ -510,66 +519,42 @@ function analyzePortfolio(data: PortfolioData): PortfolioAnalysis {
   } else if (data.description && data.description.length > 150) {
     strengths.push('Clear professional description');
     contentScore += 20;
-  } else if (data.description) {
-    weaknesses.push('Brief professional description');
-    suggestions.push('Expand your professional summary');
-    contentScore += 10;
   } else {
-    weaknesses.push('Missing professional description');
-    suggestions.push('Add a comprehensive professional description');
+    weaknesses.push('Brief or missing professional description');
+    suggestions.push('Expand your professional summary with specific achievements');
   }
 
   // Professional Experience Analysis
-  if (data.experience && data.experience.length > 0) {
-    strengths.push('Professional experience well documented');
-    contentScore += 20;
-  } else {
-    suggestions.push('Add professional experience details');
-  }
-
-  // Education Background Analysis
-  if (data.education && data.education.length > 0) {
-    strengths.push('Educational background included');
+  if (data.experience && data.experience.length > 2) {
+    strengths.push('Rich professional experience well documented');
+    contentScore += 25;
+  } else if (data.experience && data.experience.length > 0) {
     contentScore += 15;
   } else {
-    suggestions.push('Consider adding educational background');
+    suggestions.push('Add more detailed professional experience');
   }
 
-  // Contact Information Analysis
-  const socialLinksCount = Object.keys(data.contact?.social || {}).length;
-  if (data.contact?.email && socialLinksCount >= 3) {
-    strengths.push('Strong professional networking presence');
-    presentationScore += 30;
-  } else if (data.contact?.email && socialLinksCount > 0) {
-    suggestions.push('Expand your professional networking presence');
-    presentationScore += 15;
-  } else {
-    weaknesses.push('Limited contact information');
-    suggestions.push('Add more contact methods and professional links');
-  }
-
-  // Project Details Analysis
-  const projectsWithDetails = data.projects.filter(p => 
-    p.technologies.length > 0 && 
-    p.description.length > 100 &&
+  // Project Details Quality
+  const detailedProjects = data.projects.filter(p => 
+    p.description.length > 100 && 
+    p.technologies.length > 2 &&
     (p.images?.length || 0) > 0
   );
 
-  if (projectsWithDetails.length === data.projects.length && data.projects.length > 0) {
-    strengths.push('Comprehensive project documentation');
-    presentationScore += 20;
+  if (detailedProjects.length === data.projects.length && data.projects.length > 0) {
+    strengths.push('Highly detailed project documentation');
+    presentationScore += 30;
   } else if (data.projects.length > 0) {
-    suggestions.push('Add more details to your project presentations');
+    weaknesses.push('Inconsistent project documentation');
+    suggestions.push('Enhance project descriptions with technical details and visuals');
   }
 
-  // SEO and Metadata Analysis
-  if (data.metadata.seoScore > 80) {
-    strengths.push('Strong SEO optimization');
-  } else if (data.metadata.seoScore > 60) {
-    suggestions.push('Improve SEO optimization');
-  } else if (data.metadata.seoScore > 0) {
-    weaknesses.push('Poor SEO optimization');
-    suggestions.push('Implement basic SEO practices');
+  // Portfolio Uniqueness
+  if (data.projects.every(p => p.description.length > 200)) {
+    strengths.push('Unique and detailed project presentations');
+  } else {
+    weaknesses.push('Generic project descriptions');
+    suggestions.push('Make project descriptions more specific and unique');
   }
 
   return {

@@ -2,6 +2,7 @@
 import { Card } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Icons } from "./icons";
+import { Badge } from "./ui/badge";
 
 interface PortfolioResultsProps {
   data: any;
@@ -21,6 +22,7 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
           </h3>
           <Progress value={analysis.technicalScore} className="mb-4" />
           <p className="text-sm text-gray-600 mb-2">Score: {analysis.technicalScore}/100</p>
+          <p className="text-sm text-gray-500">Quality: {analysis.detailedAnalysis.technicalDepth}</p>
         </Card>
 
         <Card className="p-6">
@@ -30,6 +32,7 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
           </h3>
           <Progress value={analysis.presentationScore} className="mb-4" />
           <p className="text-sm text-gray-600 mb-2">Score: {analysis.presentationScore}/100</p>
+          <p className="text-sm text-gray-500">Quality: {analysis.detailedAnalysis.professionalImage}</p>
         </Card>
       </div>
 
@@ -42,8 +45,8 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
           <ul className="space-y-2">
             {analysis.strengths.map((strength: string, index: number) => (
               <li key={index} className="flex items-start gap-2 text-sm">
-                <Icons.check className="h-4 w-4 text-green-500 mt-0.5" />
-                {strength}
+                <Icons.check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>{strength}</span>
               </li>
             ))}
           </ul>
@@ -57,8 +60,8 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
           <ul className="space-y-2">
             {analysis.weaknesses.map((weakness: string, index: number) => (
               <li key={index} className="flex items-start gap-2 text-sm">
-                <Icons.alertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
-                {weakness}
+                <Icons.alertCircle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <span>{weakness}</span>
               </li>
             ))}
           </ul>
@@ -72,8 +75,8 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
           <ul className="space-y-2">
             {analysis.suggestions.map((suggestion: string, index: number) => (
               <li key={index} className="flex items-start gap-2 text-sm">
-                <Icons.arrowRight className="h-4 w-4 text-blue-500 mt-0.5" />
-                {suggestion}
+                <Icons.arrowRight className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <span>{suggestion}</span>
               </li>
             ))}
           </ul>
@@ -82,14 +85,14 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
 
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Portfolio Details</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2">
           <div>
             <h4 className="font-medium mb-2">Technologies ({data.technologies.length})</h4>
             <div className="flex flex-wrap gap-2">
               {data.technologies.map((tech: string, index: number) => (
-                <span key={index} className="px-2 py-1 bg-gray-100 rounded-md text-sm">
+                <Badge key={index} variant="secondary">
                   {tech}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
@@ -97,10 +100,15 @@ export function PortfolioResults({ data, analysis }: PortfolioResultsProps) {
             <h4 className="font-medium mb-2">Projects ({data.projects.length})</h4>
             <ul className="space-y-2">
               {data.projects.map((project: any, index: number) => (
-                <li key={index} className="text-sm">
-                  <a href={project.url} className="text-blue-500 hover:underline">
-                    {project.name}
-                  </a>
+                <li key={index} className="text-sm flex items-center gap-2">
+                  <Icons.arrowRight className="h-4 w-4 text-gray-400" />
+                  {project.url ? (
+                    <a href={project.url} className="text-blue-500 hover:underline">
+                      {project.name}
+                    </a>
+                  ) : (
+                    <span>{project.name}</span>
+                  )}
                 </li>
               ))}
             </ul>
