@@ -65,179 +65,133 @@ interface PortfolioAnalysis {
 export const fetchPortfolioData = async (url: string): Promise<{ data: PortfolioData; analysis: PortfolioAnalysis }> => {
   try {
     console.log('Fetching portfolio data from:', url);
-    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    if (!response.ok) throw new Error('Failed to fetch portfolio');
-    const data = await response.json();
-    const html = data.contents;
+    
+    // Try direct fetch first
+    let html = '';
+    try {
+      const directResponse = await fetch(url);
+      if (directResponse.ok) {
+        html = await directResponse.text();
+      }
+    } catch {
+      // If direct fetch fails, try using allorigins
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+      if (!response.ok) throw new Error('Failed to fetch portfolio');
+      const data = await response.json();
+      html = data.contents;
+    }
+
+    if (!html) throw new Error('Failed to get HTML content');
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    console.log('Parsed HTML document:', doc.documentElement.outerHTML.substring(0, 200) + '...');
+    console.log('Full HTML document length:', html.length);
+    console.log('Document title:', doc.title);
 
     const getContent = (selectors: string[], context: Document | Element = doc): string => {
       for (const selector of selectors) {
-        const elements = context.querySelectorAll(selector);
-        for (const element of elements) {
-          const content = element?.textContent?.trim();
-          if (content && content.length > 10) return content;
+        try {
+          const elements = context.querySelectorAll(selector);
+          for (const element of elements) {
+            const content = element?.textContent?.trim();
+            if (content && content.length > 10) {
+              console.log(`Found content using selector ${selector}:`, content.substring(0, 50) + '...');
+              return content;
+            }
+          }
+        } catch (error) {
+          console.warn(`Selector ${selector} failed:`, error);
+          continue;
         }
       }
       return '';
     };
 
+    // Enhanced technology detection
     const getTechnologies = (): string[] => {
-      const techSelectors = [
-        '.technology', '.tech-stack', '.skills', '.languages',
-        '[data-tech]', '[class*="technology"]', '[class*="skill"]',
-        '.stack', '.tool', '.framework', 
-        'code', '.code', '.programming-language',
-        '[class*="tech"]', '[class*="lang"]', '[class*="tool"]',
-        'li[class*="skill"]', 'span[class*="tech"]',
-        // Additional selectors for frameworks and tools
-        '.framework', '.library', '.platform', '.database',
-        '[class*="framework"]', '[class*="library"]', '[class*="platform"]',
-        // Look for specific tech mentions
-        '[class*="react"]', '[class*="vue"]', '[class*="angular"]',
-        '[class*="node"]', '[class*="python"]', '[class*="java"]'
-      ];
-      
       const technologies = new Set<string>();
       
-      // First pass: direct selectors
-      techSelectors.forEach(selector => {
-        doc.querySelectorAll(selector).forEach(el => {
-          const tech = el.textContent?.trim();
-          if (tech && tech.length > 1) technologies.add(tech);
+      // Common tech keywords to look for
+      const techKeywords = [
+        'JavaScript', 'TypeScript', 'Python', 'Java', 'React', 'Angular', 'Vue',
+        'Node.js', 'Express', 'MongoDB', 'PostgreSQL', 'AWS', 'Docker', 'Git',
+        'HTML5', 'CSS3', 'Sass', 'Tailwind', 'Bootstrap', 'jQuery', 'PHP',
+        'Ruby', 'Go', 'Rust', 'C++', 'C#', '.NET', 'Django', 'Flask',
+        'GraphQL', 'REST', 'Redux', 'Vuex', 'Next.js', 'Gatsby', 'Firebase',
+        'Azure', 'GCP', 'Kubernetes', 'Jenkins', 'CI/CD', 'Webpack', 'Babel'
+      ];
+
+      // Search in common locations
+      const searchLocations = [
+        'p', 'li', 'div', 'span', 'section',
+        '[class*="skill"]', '[class*="tech"]', '[class*="stack"]',
+        '[class*="language"]', '[class*="framework"]', 'code'
+      ];
+
+      searchLocations.forEach(location => {
+        const elements = doc.querySelectorAll(location);
+        elements.forEach(element => {
+          const text = element.textContent || '';
+          techKeywords.forEach(tech => {
+            if (text.includes(tech)) {
+              console.log(`Found technology: ${tech}`);
+              technologies.add(tech);
+            }
+          });
         });
       });
 
-      // Second pass: look for technology keywords in text content
-      const commonTechs = [
-        'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'PHP', 'Ruby',
-        'React', 'Vue', 'Angular', 'Node.js', 'Express', 'Django', 'Flask',
-        'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'Docker', 'Kubernetes',
-        'AWS', 'Azure', 'GCP', 'Firebase', 'Netlify', 'Vercel',
-        'Git', 'GitHub', 'GitLab', 'Bitbucket',
-        'HTML5', 'CSS3', 'SASS', 'LESS', 'Tailwind', 'Bootstrap'
-      ];
-
-      // Look for tech mentions in paragraphs and list items
-      const textNodes = doc.querySelectorAll('p, li, div, span');
-      textNodes.forEach(node => {
-        const text = node.textContent || '';
-        commonTechs.forEach(tech => {
-          if (text.includes(tech)) technologies.add(tech);
-        });
+      // Look for script tags and their technologies
+      const scripts = doc.querySelectorAll('script[src]');
+      scripts.forEach(script => {
+        const src = script.getAttribute('src') || '';
+        if (src.includes('react')) technologies.add('React');
+        if (src.includes('vue')) technologies.add('Vue.js');
+        if (src.includes('angular')) technologies.add('Angular');
+        // ... add more framework detection
       });
 
       return Array.from(technologies);
     };
 
-    const getProjects = (): Array<{
-      name: string;
-      description: string;
-      technologies: string[];
-      url?: string;
-      images?: string[];
-      status?: string;
-      duration?: string;
-      teamSize?: string;
-      role?: string;
-    }> => {
-      const projectSelectors = [
-        '.project', 'article', '.work', '.portfolio-item',
-        '[class*="project"]', '[class*="work"]', '.card',
-        '.portfolio-piece', '.showcase-item', '.work-item',
-        'section[id*="project"]', 'div[id*="work"]',
-        '.case-study', '.portfolio-entry'
+    // Enhanced project detection
+    const getProjects = (): any[] => {
+      const projectIndicators = [
+        'project', 'portfolio', 'work', 'case-study',
+        'showcase', 'featured', 'application', 'app'
       ];
       
-      const projects: Array<{
-        name: string;
-        description: string;
-        technologies: string[];
-        url?: string;
-        images?: string[];
-        status?: string;
-        duration?: string;
-        teamSize?: string;
-        role?: string;
-      }> = [];
-      
-      projectSelectors.forEach(selector => {
-        doc.querySelectorAll(selector).forEach(project => {
-          const name = getContent([
-            'h2', 'h3', '.title', '[class*="title"]',
-            'h4', '.name', '[class*="name"]',
-            'strong', '.heading', '[class*="heading"]'
-          ], project);
+      const projects: any[] = [];
+      const projectElements = new Set<Element>();
 
-          const description = getContent([
-            'p', '.description', '[class*="description"]',
-            '.summary', '[class*="summary"]', '.content',
-            '.details', '[class*="details"]', '.text'
-          ], project);
-
-          if (name || description) {
-            // Get project technologies
-            const projectTechs = Array.from(project.querySelectorAll('.tech, .stack, [class*="technology"], [class*="skill"], code'))
-              .map(tech => tech.textContent?.trim())
-              .filter((t): t is string => !!t && t.length > 1);
-
-            // Get project images
-            const images = Array.from(project.querySelectorAll('img'))
-              .map(img => img.src)
-              .filter(src => src && !src.includes('placeholder'));
-
-            // Get project status
-            const status = getContent([
-              '.status', '[class*="status"]',
-              '.phase', '[class*="phase"]'
-            ], project);
-
-            // Get project duration
-            const duration = getContent([
-              '.duration', '[class*="duration"]',
-              '.timeline', '[class*="timeline"]',
-              '.period', '[class*="period"]'
-            ], project);
-
-            // Get team size
-            const teamSize = getContent([
-              '.team-size', '[class*="team"]',
-              '.collaborators', '[class*="collaborators"]'
-            ], project);
-
-            // Get role in project
-            const role = getContent([
-              '.role', '[class*="role"]',
-              '.position', '[class*="position"]'
-            ], project);
-
-            // Get project URL
-            const links = Array.from(project.querySelectorAll('a')).filter(link => {
-              const href = (link as HTMLAnchorElement).href;
-              return href && (
-                href.includes('github.com') ||
-                href.includes('demo') ||
-                href.includes('live') ||
-                /\.(com|org|net|io)/.test(href)
-              );
-            });
-            
-            projects.push({
-              name: name || 'Untitled Project',
-              description: description || '',
-              technologies: projectTechs,
-              url: links[0] ? (links[0] as HTMLAnchorElement).href : undefined,
-              images: images.length > 0 ? images : undefined,
-              status: status || undefined,
-              duration: duration || undefined,
-              teamSize: teamSize || undefined,
-              role: role || undefined
-            });
+      // Find potential project sections
+      projectIndicators.forEach(indicator => {
+        doc.querySelectorAll(`[class*="${indicator}"], [id*="${indicator}"], section, article`).forEach(element => {
+          const text = element.textContent?.toLowerCase() || '';
+          if (projectIndicators.some(ind => text.includes(ind))) {
+            projectElements.add(element);
           }
         });
+      });
+
+      projectElements.forEach(element => {
+        const name = getContent(['h2', 'h3', 'h4', '.title', '[class*="title"]'], element);
+        const description = getContent(['p', '.description', '[class*="description"]'], element);
+        
+        if (name || description) {
+          console.log(`Found project: ${name}`);
+          const project = {
+            name: name || 'Untitled Project',
+            description: description || '',
+            technologies: Array.from(element.querySelectorAll('[class*="tech"], [class*="stack"], code'))
+              .map(tech => tech.textContent?.trim())
+              .filter(Boolean),
+            url: Array.from(element.querySelectorAll('a'))
+              .map(a => a.href)
+              .find(href => href.includes('github.com') || href.includes('demo')),
+          };
+          projects.push(project);
+        }
       });
 
       return projects;
@@ -422,13 +376,9 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
     };
 
     const portfolioData: PortfolioData = {
-      title: doc.title || getContent(['h1', '.title', '#title', '.name', '.profile-name']),
+      title: doc.title || getContent(['h1', '.title', '#title']),
       description: doc.querySelector('meta[name="description"]')?.getAttribute('content') || 
-                  getContent([
-                    '.about', '.bio', '.introduction', '#about', '[class*="about"]',
-                    '.summary', '.profile-summary', '.description',
-                    'section p', '.content p'
-                  ]),
+                  getContent(['.about', '.bio', '.introduction', '#about']),
       technologies: getTechnologies(),
       projects: getProjects(),
       skills: Array.from(new Set([...getTechnologies()])),
@@ -436,17 +386,17 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
       education: getEducation(),
       contact: {
         email: (doc.querySelector('a[href^="mailto:"]') as HTMLAnchorElement)?.href?.replace('mailto:', '') || '',
-        phone: getContent(['.phone', '.tel', '[class*="phone"]', '[class*="tel"]']),
-        location: getContent(['.location', '.address', '[class*="location"]', '[class*="address"]']),
+        phone: getContent(['.phone', '.tel', '[class*="phone"]']),
+        location: getContent(['.location', '.address', '[class*="location"]']),
         social: getSocialLinks(),
       },
       metadata: {
-        lastUpdated: doc.querySelector('time, .last-updated')?.getAttribute('datetime') || new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
         pageLoadTime: performance.now(),
         wordCount: doc.body.textContent?.split(/\s+/).length || 0,
         seoScore: calculateSEOScore(doc),
         hasResume: !!doc.querySelector('a[href*="resume"], a[href*="cv"]'),
-        hasBlog: !!doc.querySelector('a[href*="blog"], [class*="blog"]'),
+        hasBlog: !!doc.querySelector('a[href*="blog"]'),
       },
     };
 
@@ -455,16 +405,14 @@ export const fetchPortfolioData = async (url: string): Promise<{ data: Portfolio
     // Cache the data
     localStorage.setItem(`portfolio_${url}`, JSON.stringify(portfolioData));
 
-    // Enhanced analysis with more detailed scoring
     const analysis = analyzePortfolio(portfolioData);
-    localStorage.setItem(`portfolio_analysis_${url}`, JSON.stringify(analysis));
-
     console.log('Portfolio Analysis:', analysis);
+    localStorage.setItem(`portfolio_analysis_${url}`, JSON.stringify(analysis));
 
     return { data: portfolioData, analysis };
   } catch (error) {
     console.error('Portfolio scraping error:', error);
-    throw error;
+    throw new Error(`Failed to scrape portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
